@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"fmt"
 )
 
 // Metrics holds metrics captured from CaptureMetrics.
@@ -12,7 +13,7 @@ type Metrics struct {
 	// Code is the first http response code passed to the WriteHeader func of
 	// the ResponseWriter. If no such call is made, a default code of 200 is
 	// assumed instead.
-	Code int
+	Code     int
 	// Duration is the time it took to execute the handler.
 	Duration time.Duration
 	// Written is the number of bytes successfully written by the Write or
@@ -20,18 +21,20 @@ type Metrics struct {
 	// data to their underlaying connection directly (e.g. headers), but those
 	// are not tracked. Therefor the number of Written bytes will usually match
 	// the size of the response body.
-	Written int64
+	Written  int64
+
+	Location string
 }
 
 // CaptureMetrics wraps the given hnd, executes it with the given w and r, and
 // returns the metrics it captured from it.
 func CaptureMetrics(hnd http.Handler, w http.ResponseWriter, r *http.Request) Metrics {
 	var (
-		start         = time.Now()
-		m             = Metrics{Code: http.StatusOK}
+		start = time.Now()
+		m = Metrics{Code: http.StatusOK}
 		headerWritten bool
-		lock          sync.Mutex
-		hooks         = Hooks{
+		lock sync.Mutex
+		hooks = Hooks{
 			WriteHeader: func(next WriteHeaderFunc) WriteHeaderFunc {
 				return func(code int) {
 					next(code)
@@ -40,6 +43,9 @@ func CaptureMetrics(hnd http.Handler, w http.ResponseWriter, r *http.Request) Me
 					if !headerWritten {
 						m.Code = code
 						headerWritten = true
+						if code == 301 || code == 302 {
+							m.Location = r.Header.Get("Location")
+						}
 					}
 				}
 			},
