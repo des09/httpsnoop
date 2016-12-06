@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"sync"
 	"time"
-	"fmt"
 )
 
 // Metrics holds metrics captured from CaptureMetrics.
